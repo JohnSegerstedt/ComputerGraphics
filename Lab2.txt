@@ -1,0 +1,9 @@
+To avoid duplicate vertices having to be defined.
+
+The angle between the top/bottom "edges" of the camera's vision.
+
+The quotient of the width and the height of the camera's view.
+
+The distance from the camera after which objects are visible. (until the farplane)
+
+The distance from the camera after which objects are invisible.

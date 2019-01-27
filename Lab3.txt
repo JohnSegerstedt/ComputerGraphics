@@ -1,0 +1,9 @@
+Milliseconds - system block returns value in ms:s.
+
+Mouse drag + quitting functionality.
+
+Above + Arrow Keys
+
+if (event.button.button & SDL_BUTTON(SDL_BUTTON_RIGHT)) {...}
+
+"&&" in If-case
