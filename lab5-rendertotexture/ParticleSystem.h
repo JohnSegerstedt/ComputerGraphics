@@ -4,7 +4,6 @@
 #include <glm/detail/type_vec3.hpp>
 #include <glm/mat4x4.hpp>
 
-
 struct Particle {
 	float lifetime;
 	float life_length;

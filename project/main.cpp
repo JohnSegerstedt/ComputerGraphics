@@ -114,7 +114,7 @@ void initGL()
 	backgroundProgram   = labhelper::loadShaderProgram("../project/background.vert", "../project/background.frag");
 	shaderProgram       = labhelper::loadShaderProgram("../project/shading.vert",    "../project/shading.frag");
 	simpleShaderProgram = labhelper::loadShaderProgram("../project/simple.vert",     "../project/simple.frag");
-	shaderProgramMesh	= labhelper::loadShaderProgram("../project/heightfield.vert", "../project/heightfield.frag");
+	//shaderProgramMesh	= labhelper::loadShaderProgram("../project/heightfield.vert", "../project/heightfield.frag");
 
 
 	///////////////////////////////////////////////////////////////////////
@@ -311,6 +311,7 @@ void display(void)
 	drawScene(shaderProgram, viewMatrix, projMatrix, lightViewMatrix, lightProjMatrix);
 	debugDrawLight(viewMatrix, projMatrix, vec3(lightPosition));
 
+	/*
 
 	///////////////// TRIANGLE MESH /////////////////////
 	glUseProgram(shaderProgramMesh);
@@ -339,8 +340,8 @@ void display(void)
 	labhelper::setUniformSlow(shaderProgramMesh, "viewInverse", inverse(viewMatrix));
 	labhelper::setUniformSlow(shaderProgramMesh, "normalMatrix", inverse(transpose(viewMatrix)));
 
-
 	terrain.submitTriangles();
+	*/
 
 	glUseProgram(0); // "unsets" the current shader program. Not really necessary.
 }

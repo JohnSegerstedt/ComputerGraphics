@@ -52,15 +52,15 @@ void main()
 
 	//viewSpaceNormal = (normalMatrix * normalize(vec4(cross(vec01, vec02),0f))).xyz;
 	
-	/*
+	
 	// Sanity check
-	float delta = 0.001;
-	float height = texture2D(colorHF, texCoord.xy).r;
-	float dx = texture2D(colorHF, texCoord.xy + vec2(delta, 0.0)).r - height;
-	float dy = texture2D(colorHF, texCoord.xy + vec2(0.0, delta)).r - height;
-	vec3 normal_ws = normalize(vec3(-dx, delta, -dy));
-	viewSpaceNormal = (normalMatrix * vec4(normal_ws, 0.0)).xyz;
-	*/
+	//float delta = 0.001;
+	//float height = texture2D(colorHF, texCoord.xy).r;
+	//float dx = texture2D(colorHF, texCoord.xy + vec2(delta, 0.0)).r - height;
+	//float dy = texture2D(colorHF, texCoord.xy + vec2(0.0, delta)).r - height;
+	//vec3 normal_ws = normalize(vec3(-dx, delta, -dy));
+	//viewSpaceNormal = (normalMatrix * vec4(normal_ws, 0.0)).xyz;
+	
 
 	viewSpacePosition = (modelViewMatrix * vec4(position.x, height0*heightFactor, position.z, 1.0)).xyz;
 	gl_Position = modelViewProjectionMatrix * vec4(position.x, height0*heightFactor, position.z, 1.0);

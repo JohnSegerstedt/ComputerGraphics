@@ -1,4 +1,3 @@
-
 #include <GL/glew.h>
 
 // STB_IMAGE for loading images of many filetypes
@@ -55,9 +54,46 @@ vec3 securityCamPos = vec3(70.0f, 50.0f, -70.0f);
 vec3 securityCamDirection = normalize(-securityCamPos);
 vec3 cameraPosition(-70.0f, 50.0f, 70.0f);
 vec3 cameraDirection = normalize(vec3(0.0f) - cameraPosition);
-float cameraSpeed = 1.0f;
 
 vec3 worldUp(0.0f, 1.0f, 0.0f);
+
+///////////////////////////////////////////////////////////////////////////////
+// World camera.
+///////////////////////////////////////////////////////////////////////////////
+vec3 cameraOffset(50.0f, 20.0f, 0.0f);
+vec3 cameraDirectionOffsetDefault(-1.0f, -0.3f, 0.0f);
+//vec3 cameraDirectionOffset(-1.0f, -0.3f, 0.0f);
+vec3 cameraDirectionOffset = cameraDirectionOffsetDefault;
+
+vec3 cameraRight;
+vec3 cameraUp;
+
+struct PerspectiveParams
+{
+	float fov;
+	int w;
+	int h;
+	float near;
+	float far;
+};
+
+
+static PerspectiveParams pp = { 60.0f, 1280, 720, 0.1f, 10000.0f };
+
+mat4 shipModelMatrix = mat4(1.0f);
+
+float shipSpeedDefault = 3.0f;
+float shipSpeed = shipSpeedDefault;
+float shipBoostSpeedDefault = 5.0f;
+float shipTurnSpeed = 0.05f;
+float shipStrafeSpeed = 3.0f;
+float shipUpSpeed = 0.5f;
+float cameraZoomSpeed = 1.1f;
+
+static mat4 T = mat4(1.0f);
+static mat4 R = mat4(1.0f);
+
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // Models
@@ -67,29 +103,6 @@ labhelper::Model *landingpadModel = nullptr;
 labhelper::Model *fighterModel = nullptr;
 labhelper::Model *sphereModel = nullptr;
 labhelper::Model *cameraModel = nullptr;
-
-///////////////////////////////////////////////////////////////////////////////
-// Post processing effects
-///////////////////////////////////////////////////////////////////////////////
-enum PostProcessingEffect
-{
-	None = 0,
-	Sepia = 1,
-	Mushroom = 2,
-	Blur = 3,
-	Grayscale = 4,
-	Composition = 5,
-	Mosaic = 6,
-	Separable_blur = 7,
-	Bloom = 8
-};
-
-int currentEffect = PostProcessingEffect::None;
-int filterSize = 1;
-int filterSizes[12] = {3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25};
-
-int mosaicSize = 1;
-int mosaicSizes[11] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -220,6 +233,14 @@ void initGL()
 	const int numFbos = 5;
 	for (int i = 0; i < numFbos; i++)
 		fboList.push_back(FboInfo(w, h));
+	
+	/*
+	mat4 rotationMatrix = mat4(1.0f);
+	rotationMatrix[0] += -100.0f * rotationMatrix[2];
+	rotationMatrix[0] = normalize(rotationMatrix[0]);
+	rotationMatrix[2] = vec4(cross(vec3(rotationMatrix[0]), vec3(rotationMatrix[1])), 0.0f);
+	R = rotationMatrix;
+	*/
 }
 
 void drawScene(const mat4 &view, const mat4 &projection)
@@ -245,6 +266,7 @@ void drawScene(const mat4 &view, const mat4 &projection)
 
 	// landing pad 
 	mat4 modelMatrix(1.0f);
+	modelMatrix[3] += vec4(0.0f, -10.0f, 0.0f, 0.0f);
 	labhelper::setUniformSlow(shaderProgram, "modelViewProjectionMatrix", projection * view * modelMatrix);
 	labhelper::setUniformSlow(shaderProgram, "modelViewMatrix", view * modelMatrix);
 	labhelper::setUniformSlow(shaderProgram, "normalMatrix", inverse(transpose(view * modelMatrix)));
@@ -252,10 +274,10 @@ void drawScene(const mat4 &view, const mat4 &projection)
 	labhelper::render(landingpadModel);
 
 	// Fighter
-	mat4 fighterModelMatrix = translate(15.0f * worldUp) * rotate(currentTime * -float(M_PI) / 4.0f, worldUp);
-	labhelper::setUniformSlow(shaderProgram, "modelViewProjectionMatrix", projection * view * fighterModelMatrix);
-	labhelper::setUniformSlow(shaderProgram, "modelViewMatrix", view * fighterModelMatrix);
-	labhelper::setUniformSlow(shaderProgram, "normalMatrix", inverse(transpose(view * fighterModelMatrix)));
+	//mat4 fighterModelMatrix = translate(15.0f * worldUp) * rotate(currentTime * -float(M_PI) / 4.0f, worldUp);
+	labhelper::setUniformSlow(shaderProgram, "modelViewProjectionMatrix", projection * view * shipModelMatrix);
+	labhelper::setUniformSlow(shaderProgram, "modelViewMatrix", view * shipModelMatrix);
+	labhelper::setUniformSlow(shaderProgram, "normalMatrix", inverse(transpose(view * shipModelMatrix)));
 
 	labhelper::render(fighterModel);
 }
@@ -281,8 +303,16 @@ void display()
 	mat4 securityCamViewMatrix = lookAt(securityCamPos, securityCamPos + securityCamDirection, worldUp);
 	mat4 securityCamProjectionMatrix = perspective(radians(30.0f), float(w) / float(h), 15.0f, 1000.0f);
 
-	mat4 projectionMatrix = perspective(radians(45.0f), float(w) / float(h), 10.0f, 1000.0f);
-	mat4 viewMatrix = lookAt(cameraPosition, cameraPosition + cameraDirection, worldUp);
+	//mat4 projectionMatrix = perspective(radians(45.0f), float(w) / float(h), 10.0f, 1000.0f);
+
+	cameraRight = normalize(cross(cameraDirection, worldUp));
+	cameraUp = normalize(cross(cameraRight, cameraDirection));
+	mat3 cameraBaseVectorsWorldSpace(cameraRight, cameraUp, -cameraDirection);
+
+	mat4 cameraRotation = mat4(transpose(cameraBaseVectorsWorldSpace));
+	mat4 viewMatrix = cameraRotation * translate(-cameraPosition);;
+	mat4 projectionMatrix = perspective(radians(pp.fov), float(pp.w) / float(pp.h), pp.near, pp.far);
+	//mat4 viewMatrix = lookAt(cameraPosition, cameraPosition + cameraDirection, worldUp);
 
 	///////////////////////////////////////////////////////////////////////////
 	// Bind the environment map(s) to unused texture units
@@ -332,6 +362,8 @@ void display()
 	
 	labhelper::render(cameraModel);
 
+
+	
 	///////////////////////////////////////////////////////////////////////////
 	// Post processing pass(es)
 	///////////////////////////////////////////////////////////////////////////
@@ -340,15 +372,20 @@ void display()
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, securityFB0.colorTextureTarget);
 
+	
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUseProgram(postFxShader);
 
+	/*
 	labhelper::setUniformSlow(postFxShader, "time", currentTime);
 	labhelper::setUniformSlow(postFxShader, "currentEffect", currentEffect);
 	labhelper::setUniformSlow(postFxShader, "filterSize", filterSizes[filterSize - 1]);
 	labhelper::setUniformSlow(postFxShader, "mosaicSize", mosaicSizes[mosaicSize - 1]);
+	*/
 	labhelper::drawFullScreenQuad();
+	
+
 
 	glUseProgram(0);
 
@@ -364,6 +401,28 @@ bool handleEvents(void)
 		if (event.type == SDL_QUIT || (event.type == SDL_KEYUP && event.key.keysym.sym == SDLK_ESCAPE)) {
 			quitEvent = true;
 		}
+
+		// Allow ImGui to capture events.
+		ImGui_ImplSdlGL3_ProcessEvent(&event);
+
+		if (event.type == SDL_MOUSEMOTION && !ImGui::IsMouseHoveringAnyWindow()) {
+			// More info at https://wiki.libsdl.org/SDL_MouseMotionEvent
+			static int prev_xcoord = event.motion.x;
+			static int prev_ycoord = event.motion.y;
+			int delta_x = event.motion.x - prev_xcoord;
+			int delta_y = event.motion.y - prev_ycoord;
+			if (event.button.button & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+				float rotationSpeed = 0.005f;
+				mat4 yaw = rotate(rotationSpeed * -delta_x, worldUp);
+				mat4 pitch = rotate(rotationSpeed * -delta_y, normalize(cross(cameraDirectionOffset, worldUp)));
+				cameraDirectionOffset = vec3(pitch * yaw * vec4(cameraDirectionOffset, 0.0f));
+				printf("Mouse motion while left button down (%i, %i)\n", event.motion.x, event.motion.y);
+			}
+			prev_xcoord = event.motion.x;
+			prev_ycoord = event.motion.y;
+		}
+
+		/*
 		if (event.type == SDL_MOUSEMOTION && !ImGui::IsMouseHoveringAnyWindow()) {
 			// More info at https://wiki.libsdl.org/SDL_MouseMotionEvent
 			static int prev_xcoord = event.motion.x;
@@ -387,37 +446,67 @@ bool handleEvents(void)
 
 			prev_xcoord = event.motion.x;
 			prev_ycoord = event.motion.y;
-		}
+			*/
+
 	}
 
 	// check keyboard state (which keys are still pressed)
 	const uint8_t *state = SDL_GetKeyboardState(nullptr);
 	vec3 cameraRight = cross(cameraDirection, worldUp);
 	
+	// implement controls based on key states
+	//static mat4 R = initializeR();
+	if (state[SDL_SCANCODE_UP]) {
+		cameraOffset /= cameraZoomSpeed;
+	}
+	if (state[SDL_SCANCODE_DOWN]) {
+		cameraOffset *= cameraZoomSpeed;
+		//cameraPosition -= normalize(cameraDirection) * cameraMoveSpeed;
+	}
+	if (state[SDL_SCANCODE_LSHIFT]) {
+		shipSpeed = shipBoostSpeedDefault;
+	}
+	else {
+		shipSpeed = shipSpeedDefault;
+	}
 	if (state[SDL_SCANCODE_W]) {
-		cameraPosition += cameraSpeed* cameraDirection;
+		T[3] -= shipSpeed * R[0];
 	}
 	if (state[SDL_SCANCODE_S]) {
-		cameraPosition -= cameraSpeed * cameraDirection;
+		T[3] += shipSpeed * R[0];
 	}
 	if (state[SDL_SCANCODE_A]) {
-		cameraPosition -= cameraSpeed * cameraRight;
+		T[3] += shipStrafeSpeed * R[2];
 	}
 	if (state[SDL_SCANCODE_D]) {
-		cameraPosition += cameraSpeed * cameraRight;
+		T[3] -= shipStrafeSpeed * R[2];
 	}
 	if (state[SDL_SCANCODE_Q]) {
-		cameraPosition -= cameraSpeed * worldUp;
+		R[0] -= shipTurnSpeed * R[2];
 	}
 	if (state[SDL_SCANCODE_E]) {
-		cameraPosition += cameraSpeed * worldUp;
+		R[0] += shipTurnSpeed * R[2];
 	}
+	if (state[SDL_SCANCODE_SPACE]) {
+		cameraDirectionOffset = cameraDirectionOffsetDefault;
+	}
+	/* if (state[SDL_SCANCODE_SPACE]) {
+		T[3] += shipUpSpeed * R[1];
+	}*/
+
+	R[0] = normalize(R[0]);
+	R[2] = vec4(cross(vec3(R[0]), vec3(R[1])), 0.0f);
+	shipModelMatrix = T * R;
+	cameraPosition = vec3(T[3]) + mat3(R) * cameraOffset;
+	cameraDirection = normalize(mat3(R) * cameraDirectionOffset);
 
 	return quitEvent;
 }
 
+
 void gui()
 {
+	/*
 	// Inform imgui of new frame
 	ImGui_ImplSdlGL3_NewFrame(g_window);
 
@@ -441,6 +530,7 @@ void gui()
 
 	// Render the GUI.
 	ImGui::Render();
+	*/
 }
 
 int main(int argc, char *argv[])
