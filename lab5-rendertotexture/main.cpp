@@ -102,6 +102,7 @@ static mat4 R = mat4(1.0f);
 
 GLuint vertexArrayObject;
 GLuint particleProgram;
+ParticleSystem particleSystem = ParticleSystem(1000);
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -218,10 +219,11 @@ void initGL()
 	fighterModel = labhelper::loadModelFromOBJ("../scenes/NewShip.obj");
 
 	// load and set up default shader
-	backgroundProgram = labhelper::loadShaderProgram("../lab5-rendertotexture/shaders/background.vert", "../lab5-rendertotexture/shaders/background.frag");
-	shaderProgram     = labhelper::loadShaderProgram("../lab5-rendertotexture/shaders/simple.vert",     "../lab5-rendertotexture/shaders/simple.frag");
-	postFxShader      = labhelper::loadShaderProgram("../lab5-rendertotexture/shaders/postFx.vert",     "../lab5-rendertotexture/shaders/postFx.frag");
-	particleProgram      = labhelper::loadShaderProgram("../lab5-rendertotexture/shaders/particle.vert",     "../lab5-rendertotexture/shaders/particle.frag");
+	backgroundProgram = labhelper::loadShaderProgram("../acg/shaders/background.vert", "../acg/shaders/background.frag");
+	shaderProgram     = labhelper::loadShaderProgram("../acg/shaders/simple.vert",     "../acg/shaders/simple.frag");
+	postFxShader      = labhelper::loadShaderProgram("../acg/shaders/postFx.vert",     "../acg/shaders/postFx.frag");
+	particleProgram      = labhelper::loadShaderProgram("../acg/shaders/basicVertexShader.vert",     "../acg/shaders/basicFragmentShader.frag");
+	//particleProgram      = labhelper::loadShaderProgram("../acg/shaders/particle.vert",     "../acg/shaders/particle.frag");
 
 	///////////////////////////////////////////////////////////////////////////
 	// Load environment map
@@ -244,43 +246,51 @@ void initGL()
 	for (int i = 0; i < numFbos; i++)
 		fboList.push_back(FboInfo(w, h));
 	
+
+	// newCode
 	//////////////////////////////////////////////////////////////////////////////
-	// Vertex positions
+	// INSERT DATA INTO PARTICLESYSTEM
 	//////////////////////////////////////////////////////////////////////////////
-	// Define the positions for each of the three vertices of the triangle
-	const float positions[] = {
-		//	 X      Y     Z		TimeLeft
-		0.0f,	0.0f,	0.0f,	0.0f
-	};
-	/*
-	const float positions[] = {
-	//	 X      Y     Z		TimeLeft
-	0.0f,	0.0f,	0.0f,	0.0f
-	};
+	const unsigned int numberOfParticlesToSpawn = 100;
+	const float scale = 10.0f;
+	
+	for (int i = 0; i < numberOfParticlesToSpawn; i++) {
+		const float theta = labhelper::uniform_randf(0.f, 2.f * M_PI);
+		const float u = labhelper::uniform_randf(-1.f, 1.f);
+		glm::vec3 pos = glm::vec3(sqrt(1.f - u * u) * cosf(theta) * scale, u * scale, sqrt(1.f - u * u) * sinf(theta) * scale);
+		Particle spawnedParticle = Particle(1.0f, 0.0f, vec3(0.0f), pos);
+		particleSystem.spawn(spawnedParticle);
+	}
+
+	//////////////////////////////////////////////////////////////////////////////
+	// EXTRACT DATA FROM PARTICLESYSTEM
+	//////////////////////////////////////////////////////////////////////////////
+	unsigned int active_particles = particleSystem.particles.size();
+	
+	std::vector<glm::vec4> data;
+	data.resize(active_particles);
 
 
-	vec4 vecData;
+	for (unsigned int i = 0; i < active_particles; i++) {
+		Particle extractedParticle = particleSystem.particles[i];
+		data[i] = vec4(extractedParticle.position.x, extractedParticle.position.y, extractedParticle.position.z, extractedParticle.life_length);
+	}
 
+	// sort particles with sort from c++ standard library
+	std::sort(data.begin(), std::next(data.begin(), active_particles),
+		[](const vec4 &lhs, const vec4 &rhs) { return lhs.z < rhs.z; });
+
+	//////////////////////////////////////////////////////////////////////////////
+	// BINDING BUFFERS AND SHADERS
+	//////////////////////////////////////////////////////////////////////////////
 	glUseProgram(particleProgram);
-	GLuint positionBuffer;
-	glGenBuffers(1, &positionBuffer);
-	// Set the newly created buffer as the current one
-	glBindBuffer(GL_ARRAY_BUFFER, positionBuffer);
-	// Send the vertex position data to the current buffer
-	//glBufferData(GL_ARRAY_BUFFER, sizeof(positions), positions, GL_STATIC_DRAW);
 	glBufferData(GL_ARRAY_BUFFER, 100000, nullptr, GL_STATIC_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, particleSystem.particles.size() * sizeof(vec4), &vecData);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, particleSystem.particles.size() * sizeof(vec4), &data);
 
 	glGenVertexArrays(1, &vertexArrayObject);
-	// Bind the vertex array object
-	// The following calls will affect this vertex array object.
 	glBindVertexArray(vertexArrayObject);
-	// Makes positionBuffer the current array buffer for subsequent calls.
-	glBindBuffer(GL_ARRAY_BUFFER, positionBuffer);
-	// Attaches positionBuffer to vertexArrayObject, in the 0th attribute location
-	//glVertexAttribPointer(0, 1, GL_FLOAT, false, 0, 0);
-	//glEnableVertexAttribArray(0); // Enable the vertex position attribute
-	*/
+	glDrawArrays(GL_POINTS, 0, active_particles);
+	
 
 }
 
@@ -315,12 +325,15 @@ void drawScene(const mat4 &view, const mat4 &projection)
 	labhelper::render(landingpadModel);
 
 	// Fighter
-	//mat4 fighterModelMatrix = translate(15.0f * worldUp) * rotate(currentTime * -float(M_PI) / 4.0f, worldUp);
 	labhelper::setUniformSlow(shaderProgram, "modelViewProjectionMatrix", projection * view * shipModelMatrix);
 	labhelper::setUniformSlow(shaderProgram, "modelViewMatrix", view * shipModelMatrix);
 	labhelper::setUniformSlow(shaderProgram, "normalMatrix", inverse(transpose(view * shipModelMatrix)));
 
 	labhelper::render(fighterModel);
+
+	// newCode
+	glUseProgram(shaderProgram);
+	labhelper::setUniformSlow(shaderProgram, "viewProjectionMatrix", projection * view);
 }
 
 

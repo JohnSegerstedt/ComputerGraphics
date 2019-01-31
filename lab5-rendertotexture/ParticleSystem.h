@@ -4,13 +4,20 @@
 #include <glm/detail/type_vec3.hpp>
 #include <glm/mat4x4.hpp>
 
+#ifndef PARTICLE_H
+#define PARTICLE_H
 struct Particle {
 	float lifetime;
 	float life_length;
 	glm::vec3 velocity;
-	glm::vec3 pos;
-};
+	glm::vec3 position;
 
+	Particle(float maxLife, float currentLife, glm::vec3 vel, glm::vec3 pos);
+};
+#endif // PARTICLE_H
+
+#ifndef PARTICLESYSTEM_H
+#define PARTICLESYSTEM_H
 class ParticleSystem {
  public:
 	// Members
@@ -21,16 +28,8 @@ class ParticleSystem {
 	explicit ParticleSystem(int size) : max_size(size) {}
 	~ParticleSystem() {}
 	// Methods
-	void kill(int id) {
-		particles.erase(particles.begin() + id);
-	}
-	void spawn(Particle particle) {
-		particles.push_back(particle);
-	}
-	void process_particles(float dt) {
-		for (int i = 0; i < particles.size(); i++) {
-			particles[i].life_length++;
-			if (particles[i].life_length >= particles[i].lifetime) kill(i);
-		}
-	}
+	void kill(int id);
+	void spawn(Particle particle);
+	void process_particles(float dt);
 };
+#endif // PARTICLESYSTEM_H
