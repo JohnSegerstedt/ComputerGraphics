@@ -19,7 +19,7 @@ struct Particle {
 #ifndef PARTICLESYSTEM_H
 #define PARTICLESYSTEM_H
 class ParticleSystem {
- public:
+public:
 	// Members
 	std::vector<Particle> particles;
 	int max_size;

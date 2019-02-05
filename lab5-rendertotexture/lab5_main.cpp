@@ -1,5 +1,6 @@
 #include <GL/glew.h>
 
+
 // STB_IMAGE for loading images of many filetypes
 #include <stb_image.h>
 
@@ -93,6 +94,15 @@ float cameraZoomSpeed = 1.1f;
 static mat4 T = mat4(1.0f);
 static mat4 R = mat4(1.0f);
 
+
+///////////////////////////////////////////////////////////////////////////////
+// Particle System
+///////////////////////////////////////////////////////////////////////////////
+#include "ParticleSystem.h"
+
+GLuint vertexArrayObject;
+GLuint particleProgram;
+ParticleSystem particleSystem = ParticleSystem(1000);
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -212,6 +222,8 @@ void initGL()
 	backgroundProgram = labhelper::loadShaderProgram("../lab5-rendertotexture/shaders/background.vert", "../lab5-rendertotexture/shaders/background.frag");
 	shaderProgram     = labhelper::loadShaderProgram("../lab5-rendertotexture/shaders/simple.vert",     "../lab5-rendertotexture/shaders/simple.frag");
 	postFxShader      = labhelper::loadShaderProgram("../lab5-rendertotexture/shaders/postFx.vert",     "../lab5-rendertotexture/shaders/postFx.frag");
+	particleProgram      = labhelper::loadShaderProgram("../lab5-rendertotexture/shaders/basicVertexShader.vert",     "../lab5-rendertotexture/shaders/basicFragmentShader.frag");
+	//particleProgram      = labhelper::loadShaderProgram("../lab5-rendertotexture/shaders/particle.vert",     "../lab5-rendertotexture/shaders/particle.frag");
 
 	///////////////////////////////////////////////////////////////////////////
 	// Load environment map
@@ -234,13 +246,52 @@ void initGL()
 	for (int i = 0; i < numFbos; i++)
 		fboList.push_back(FboInfo(w, h));
 	
-	/*
-	mat4 rotationMatrix = mat4(1.0f);
-	rotationMatrix[0] += -100.0f * rotationMatrix[2];
-	rotationMatrix[0] = normalize(rotationMatrix[0]);
-	rotationMatrix[2] = vec4(cross(vec3(rotationMatrix[0]), vec3(rotationMatrix[1])), 0.0f);
-	R = rotationMatrix;
-	*/
+
+	// newCode
+	//////////////////////////////////////////////////////////////////////////////
+	// INSERT DATA INTO PARTICLESYSTEM
+	//////////////////////////////////////////////////////////////////////////////
+	const unsigned int numberOfParticlesToSpawn = 100;
+	const float scale = 10.0f;
+	
+	for (int i = 0; i < numberOfParticlesToSpawn; i++) {
+		const float theta = labhelper::uniform_randf(0.f, 2.f * M_PI);
+		const float u = labhelper::uniform_randf(-1.f, 1.f);
+		glm::vec3 pos = glm::vec3(sqrt(1.f - u * u) * cosf(theta) * scale, u * scale, sqrt(1.f - u * u) * sinf(theta) * scale);
+		Particle spawnedParticle = Particle(1.0f, 0.0f, vec3(0.0f), pos);
+		particleSystem.spawn(spawnedParticle);
+	}
+
+	//////////////////////////////////////////////////////////////////////////////
+	// EXTRACT DATA FROM PARTICLESYSTEM
+	//////////////////////////////////////////////////////////////////////////////
+	unsigned int active_particles = particleSystem.particles.size();
+	
+	std::vector<glm::vec4> data;
+	data.resize(active_particles);
+
+
+	for (unsigned int i = 0; i < active_particles; i++) {
+		Particle extractedParticle = particleSystem.particles[i];
+		data[i] = vec4(extractedParticle.position.x, extractedParticle.position.y, extractedParticle.position.z, extractedParticle.life_length);
+	}
+
+	// sort particles with sort from c++ standard library
+	std::sort(data.begin(), std::next(data.begin(), active_particles),
+		[](const vec4 &lhs, const vec4 &rhs) { return lhs.z < rhs.z; });
+
+	//////////////////////////////////////////////////////////////////////////////
+	// BINDING BUFFERS AND SHADERS
+	//////////////////////////////////////////////////////////////////////////////
+	glUseProgram(particleProgram);
+	glBufferData(GL_ARRAY_BUFFER, 100000, nullptr, GL_STATIC_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, particleSystem.particles.size() * sizeof(vec4), &data);
+
+	glGenVertexArrays(1, &vertexArrayObject);
+	glBindVertexArray(vertexArrayObject);
+	glDrawArrays(GL_POINTS, 0, active_particles);
+	
+
 }
 
 void drawScene(const mat4 &view, const mat4 &projection)
@@ -274,12 +325,15 @@ void drawScene(const mat4 &view, const mat4 &projection)
 	labhelper::render(landingpadModel);
 
 	// Fighter
-	//mat4 fighterModelMatrix = translate(15.0f * worldUp) * rotate(currentTime * -float(M_PI) / 4.0f, worldUp);
 	labhelper::setUniformSlow(shaderProgram, "modelViewProjectionMatrix", projection * view * shipModelMatrix);
 	labhelper::setUniformSlow(shaderProgram, "modelViewMatrix", view * shipModelMatrix);
 	labhelper::setUniformSlow(shaderProgram, "normalMatrix", inverse(transpose(view * shipModelMatrix)));
 
 	labhelper::render(fighterModel);
+
+	// newCode
+	glUseProgram(shaderProgram);
+	labhelper::setUniformSlow(shaderProgram, "viewProjectionMatrix", projection * view);
 }
 
 
